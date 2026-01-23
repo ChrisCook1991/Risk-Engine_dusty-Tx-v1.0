@@ -1,0 +1,26 @@
+[
+    {
+        "caip_2": "eip155:1",
+        "counterparty_addr": "0x82Cd1248052956Bc5ac65cD6306a5328f2599751",
+        "token_amount": 0.01000000,
+        "nonce": 0
+    },
+    {
+        "caip_2": "eip155:1",
+        "counterparty_addr": "0xbb2f3248052956Bc5ac65cD6306a5328f2599751",
+        "token_amount": 0.01000000,
+        "nonce": 1
+    },
+    {
+        "caip_2": "eip155:1",
+        "counterparty_addr": "0xbb2f33f73cCC2c74E3fB9bb8EB75241AC65706E6",
+        "token_amount": 0.00015000,
+        "nonce": 3
+    },
+    {
+        "caip_2": "eip155:1",
+        "counterparty_addr": "0x4b123455432aA8bD134896dC86AD1E71165706E6",
+        "token_amount": 0.015000,
+        "nonce": 4
+    }
+]

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>风险决策分析系统</title>
+    <meta name="description" content="基于地址相似度和交易数额的风险决策引擎Dashboard，用于识别高风险交易并输出风控动作建议">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M12 8v4M12 16h.01" />
+                    </svg>
+                    <h1>风险决策分析系统</h1>
+                </div>
+                <p class="subtitle">基于地址相似度和交易数额的智能风控引擎</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="section upload-section">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    数据上传
+                </h2>
+                <div class="upload-grid">
+                    <!-- Transactions Upload -->
+                    <div class="upload-card" id="transactions-upload">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <line x1="8" y1="12" x2="16" y2="12" />
+                                <line x1="12" y1="8" x2="12" y2="16" />
+                            </svg>
+                        </div>
+                        <h3>交易数据</h3>
+                        <p class="upload-desc">上传待检测的交易列表 (JSON)</p>
+                        <input type="file" id="transactions-file" accept=".json" hidden>
+                        <label for="transactions-file" class="upload-btn">选择文件</label>
+                        <div class="upload-status" id="transactions-status"></div>
+                        <button class="clear-btn" id="clear-transactions" hidden>清空</button>
+                    </div>
+
+                    <!-- Anchors Upload -->
+                    <div class="upload-card" id="anchors-upload">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="5" r="3" />
+                                <line x1="12" y1="22" x2="12" y2="8" />
+                                <path d="M5 12H2a10 10 0 0 0 20 0h-3" />
+                            </svg>
+                        </div>
+                        <h3>锚点地址库</h3>
+                        <p class="upload-desc">上传用户历史真实收款地址列表 (JSON)</p>
+                        <p class="upload-hint">（用于与待检测交易地址进行相似度比对）</p>
+                        <input type="file" id="anchors-file" accept=".json" hidden>
+                        <label for="anchors-file" class="upload-btn">选择文件</label>
+                        <div class="upload-status" id="anchors-status"></div>
+                        <button class="clear-btn" id="clear-anchors" hidden>清空</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Config Section -->
+            <section class="section config-section">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                    参数配置
+                </h2>
+                <div class="config-grid">
+                    <div class="config-group weights-group">
+                        <h4>权重参数</h4>
+                        <div class="config-inputs">
+                            <div class="config-item">
+                                <label for="bias">bias (偏置项)</label>
+                                <input type="number" id="bias" value="-2" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="w1">w₁ (地址相似度权重)</label>
+                                <input type="number" id="w1" value="2" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="w2">w₂ (交易数额权重)</label>
+                                <input type="number" id="w2" value="1.5" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="b12">b₁₂ (交互项系数)</label>
+                                <input type="number" id="b12" value="1" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="config-group thresholds-group">
+                        <h4>阈值参数</h4>
+                        <div class="config-inputs">
+                            <div class="config-item threshold-t0">
+                                <label for="t0">T₀ (PASS↔REMINDER)</label>
+                                <input type="number" id="t0" value="0.3" step="0.05" min="0" max="1">
+                            </div>
+                            <div class="config-item threshold-t1">
+                                <label for="t1">T₁ (REMINDER↔WARNING)</label>
+                                <input type="number" id="t1" value="0.5" step="0.05" min="0" max="1">
+                            </div>
+                            <div class="config-item threshold-t2">
+                                <label for="t2">T₂ (WARNING↔BLOCK)</label>
+                                <input type="number" id="t2" value="0.7" step="0.05" min="0" max="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="section results-section">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    分析结果
+                    <span class="results-count" id="results-count"></span>
+                </h2>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                    </div>
+                    <h3>请上传数据文件</h3>
+                    <p>上传交易数据和锚点地址库文件以开始分析</p>
+                </div>
+
+                <!-- No Results State -->
+                <div class="no-results-state" id="no-results-state" hidden>
+                    <div class="success-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                    </div>
+                    <h3>未发现风险</h3>
+                    <p>所有交易均未命中风险规则</p>
+                </div>
+
+                <!-- Results Container -->
+                <div class="results-container" id="results-container"></div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>风险决策分析系统 v1.0 | 智能风控引擎</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,50 @@
+[
+    {
+        "counterparty_addr": "0x742d35Cc6634C0532925a3b844Bc9e7595",
+        "token_amount": 0.0005,
+        "caip2": "eip155:1",
+        "nonce": 42
+    },
+    {
+        "counterparty_addr": "0x8Ba1f109551bD432803012645Ac136ddd64DBA72",
+        "token_amount": 150.5,
+        "caip2": "eip155:1",
+        "nonce": 43
+    },
+    {
+        "counterparty_addr": "0x82Cd1234567890abcdef1234567890abcd009751",
+        "token_amount": 25.0,
+        "caip2": "eip155:1",
+        "nonce": 44
+    },
+    {
+        "counterparty_addr": "0xABCDef1234567890123456789012345678909751",
+        "token_amount": 0.00001,
+        "caip2": "eip155:1",
+        "nonce": 45
+    },
+    {
+        "counterparty_addr": "TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax",
+        "token_amount": 100.0,
+        "caip2": "tron:mainnet",
+        "nonce": 46
+    },
+    {
+        "counterparty_addr": "TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMgABC",
+        "token_amount": 0.0008,
+        "caip2": "tron:0x294270c5",
+        "nonce": 47
+    },
+    {
+        "counterparty_addr": "0x1234567890abcdef1234567890abcdef12345678",
+        "token_amount": 500.0,
+        "caip2": "eip155:56",
+        "nonce": 48
+    },
+    {
+        "counterparty_addr": "0x82Cd12abcdef1234567890abcdef12345678XXXX",
+        "token_amount": 10.0,
+        "caip2": "eip155:1",
+        "nonce": 49
+    }
+]
