@@ -12,9 +12,8 @@ let config = {
     w1: 2,
     w2: 1.5,
     b12: 1,
-    t0: 0.3,
-    t1: 0.5,
-    t2: 0.7,
+    t0: 0.5,  // PASS ↔ WARNING threshold
+    t1: 0.7,  // WARNING ↔ BLOCK threshold
     // Trait 1 Continuous Strength Parameters
     s0: 0.65,  // Threshold strength floor
     // EVM Rules
@@ -60,8 +59,7 @@ const configInputs = {
     w2: document.getElementById('w2'),
     b12: document.getElementById('b12'),
     t0: document.getElementById('t0'),
-    t1: document.getElementById('t1'),
-    t2: document.getElementById('t2')
+    t1: document.getElementById('t1')
 };
 
 // ========================================
@@ -362,15 +360,12 @@ function calculateDecision(s1, s2, cfg) {
     // confidence = 1 / (1 + e^(-z))
     const confidence = 1 / (1 + Math.exp(-z));
 
-    // Level mapping
+    // Level mapping (2-threshold system)
     let level, action;
     if (confidence < cfg.t0) {
         level = 'L0';
         action = 'PASS';
     } else if (confidence < cfg.t1) {
-        level = 'L1';
-        action = 'REMINDER';
-    } else if (confidence < cfg.t2) {
         level = 'L2';
         action = 'WARNING';
     } else {
@@ -598,7 +593,7 @@ function createResultCard(result, index) {
                     </div>
                     <div class="calc-step">
                         <span class="formula">等级映射</span>: confidence ${decision.confidence.toFixed(2)} 
-                        ${decision.level === 'L0' ? '< T₀' : decision.level === 'L1' ? '∈ [T₀, T₁)' : decision.level === 'L2' ? '∈ [T₁, T₂)' : '≥ T₂'}
+                        ${decision.level === 'L0' ? '< T₀' : decision.level === 'L2' ? '∈ [T₀, T₁)' : '≥ T₁'}
                         → <span class="result">${decision.level} (${decision.action})</span>
                     </div>
                 </div>
@@ -895,9 +890,8 @@ function updateConfig() {
     config.w1 = parseFloat(configInputs.w1.value) || 0;
     config.w2 = parseFloat(configInputs.w2.value) || 0;
     config.b12 = parseFloat(configInputs.b12.value) || 0;
-    config.t0 = parseFloat(configInputs.t0.value) || 0.3;
-    config.t1 = parseFloat(configInputs.t1.value) || 0.5;
-    config.t2 = parseFloat(configInputs.t2.value) || 0.7;
+    config.t0 = parseFloat(configInputs.t0.value) || 0.5;
+    config.t1 = parseFloat(configInputs.t1.value) || 0.7;
 
     renderResults();
 }
