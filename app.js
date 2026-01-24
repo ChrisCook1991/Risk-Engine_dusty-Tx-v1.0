@@ -8,12 +8,18 @@
 let transactions = [];
 let anchors = [];
 let config = {
-    bias: -2,
-    w1: 2,
-    w2: 1.5,
-    b12: 1,
-    t0: 0.5,  // PASS ↔ WARNING threshold
-    t1: 0.7,  // WARNING ↔ BLOCK threshold
+    // Decision weights
+    bias: -2.0,
+    w1: 2.8,   // Trait 1: Address similarity (strong signal)
+    w2: 1.5,   // Trait 2: Small amount (medium signal)
+    w3: 0.8,   // Trait 3: Temporal proximity (weak signal)
+    // Interaction coefficients
+    b12: 2.0,  // S1 × S2: Address + Amount (strong boost)
+    b13: 0.3,  // S1 × S3: Address + Time (small boost)
+    b23: 0.0,  // S2 × S3: Amount + Time (no boost initially)
+    // Thresholds
+    t0: 0.3,   // PASS ↔ WARNING threshold
+    t1: 0.65,  // WARNING ↔ BLOCK threshold
     // Trait 1 Continuous Strength Parameters
     s0: 0.65,  // Threshold strength floor
     // EVM Rules
@@ -33,7 +39,11 @@ let config = {
     tron_L0_suffix_C: 3,
     tron_L1_suffix_C: 9,
     tron_L0_prefix_C: 3,
-    tron_L1_prefix_C: 9
+    tron_L1_prefix_C: 9,
+    // Trait 3 Temporal Proximity Parameters
+    t_min: 120,      // 2 minutes (in seconds)
+    t_max: 21600,    // 6 hours (in seconds)
+    k: 3             // Exponential decay rate
 };
 
 // ========================================
@@ -57,9 +67,13 @@ const configInputs = {
     bias: document.getElementById('bias'),
     w1: document.getElementById('w1'),
     w2: document.getElementById('w2'),
+    w3: document.getElementById('w3'),
     b12: document.getElementById('b12'),
+    b13: document.getElementById('b13'),
+    b23: document.getElementById('b23'),
     t0: document.getElementById('t0'),
-    t1: document.getElementById('t1')
+    t1: document.getElementById('t1'),
+    s0: document.getElementById('s0')
 };
 
 // ========================================
@@ -91,6 +105,100 @@ function ramp_with_floor(x, L0, L1, s0) {
     if (x >= L1) return 1;
     // Linear interpolation from s0 to 1
     return s0 + (1 - s0) * (x - L0) / (L1 - L0);
+}
+
+// ========================================
+// Trait 3: Temporal Proximity
+// ========================================
+
+/**
+ * Calculate temporal proximity strength (Trait 3)
+ * Measures how closely a candidate transaction follows an anchor transaction in time
+ * Uses exponential decay: closer in time = higher suspicion
+ * 
+ * @param {string} anchorTimestamp - Anchor tx blockTimestamp (Unix seconds as string)
+ * @param {string} candidateTimestamp - Candidate tx blockTimestamp (Unix seconds as string)
+ * @param {object} cfg - Configuration object
+ * @returns {object} {hit: boolean, strength: number, evidence: object}
+ */
+function calculateTemporalProximity(anchorTimestamp, candidateTimestamp, cfg) {
+    // Handle missing timestamps
+    if (!anchorTimestamp || !candidateTimestamp) {
+        return {
+            hit: false,
+            strength: 0,
+            evidence: {
+                error: 'Missing timestamp data',
+                t_anchor: null,
+                t_candidate: null,
+                deltaT_seconds: null
+            }
+        };
+    }
+
+    // Parse timestamps to integers
+    const t_anchor = parseInt(anchorTimestamp);
+    const t_candidate = parseInt(candidateTimestamp);
+
+    // Validate parsed values
+    if (isNaN(t_anchor) || isNaN(t_candidate)) {
+        return {
+            hit: false,
+            strength: 0,
+            evidence: {
+                error: 'Invalid timestamp format',
+                t_anchor,
+                t_candidate,
+                deltaT_seconds: null
+            }
+        };
+    }
+
+    // Calculate time delta (seconds)
+    const deltaT = t_candidate - t_anchor;
+
+    let strength = 0;
+    let hit = false;
+    let r = null;
+
+    // Directional constraint: only consider transactions AFTER anchor
+    if (deltaT <= 0) {
+        // Candidate occurred before or at the same time as anchor
+        strength = 0;
+        hit = false;
+    } else if (deltaT <= cfg.t_min) {
+        // Case 1: Very close in time (0 < Δt <= 2 minutes)
+        // Maximum suspicion
+        strength = 1;
+        hit = true;
+    } else if (deltaT < cfg.t_max) {
+        // Case 2: Exponential decay (2 minutes < Δt < 6 hours)
+        // Normalize distance to [0, 1]
+        r = (deltaT - cfg.t_min) / (cfg.t_max - cfg.t_min);
+        // Apply exponential decay: S3 = exp(-k * r)
+        strength = Math.exp(-cfg.k * r);
+        hit = true;
+    } else {
+        // Case 3: Too far apart (Δt >= 6 hours)
+        // Weak temporal association
+        strength = 0;
+        hit = false;
+    }
+
+    return {
+        hit,
+        strength: clip_0_1(strength),
+        evidence: {
+            t_anchor,
+            t_candidate,
+            deltaT_seconds: deltaT,
+            t_min: cfg.t_min,
+            t_max: cfg.t_max,
+            k: cfg.k,
+            r: r,
+            strength: strength
+        }
+    };
 }
 
 // ========================================
@@ -347,12 +455,12 @@ function getChainType(caip2) {
  * @param {object} cfg - Configuration parameters
  * @returns {object}
  */
-function calculateDecision(s1, s2, cfg) {
-    // z_base = bias + (w1 × s1) + (w2 × s2)
-    const zBase = cfg.bias + (cfg.w1 * s1) + (cfg.w2 * s2);
+function calculateDecision(s1, s2, s3, cfg) {
+    // z_base = bias + (w1 × s1) + (w2 × s2) + (w3 × s3)
+    const zBase = cfg.bias + (cfg.w1 * s1) + (cfg.w2 * s2) + (cfg.w3 * s3);
 
-    // z_interaction = b12 × s1 × s2
-    const zInteraction = cfg.b12 * s1 * s2;
+    // z_interaction = b12*S1*S2 + b13*S1*S3 + b23*S2*S3
+    const zInteraction = (cfg.b12 * s1 * s2) + (cfg.b13 * s1 * s3) + (cfg.b23 * s2 * s3);
 
     // z = z_base + z_interaction
     const z = zBase + zInteraction;
@@ -404,7 +512,9 @@ function analyzeTransactions() {
         let trait1Matched = false;
         let matchedAnchor = null;
         let matchedTrait1Evidence = null;
+        let matchedTrait3Evidence = null;
         let s1 = 0; // Continuous strength [0, 1]
+        let s3 = 0; // Temporal proximity strength [0, 1]
 
         // Get transaction chain type for same-chain comparison
         const txChainType = getChainType(tx.caip2);
@@ -428,21 +538,35 @@ function analyzeTransactions() {
                 matchedAnchor = anchor;
                 matchedTrait1Evidence = trait1Result.evidence;
                 s1 = trait1Result.strength; // Use continuous strength
+
+                // Calculate Trait 3 (temporal proximity) for matched anchor
+                if (tx.blockTimestamp && anchor.blockTimestamp) {
+                    const trait3Result = calculateTemporalProximity(
+                        anchor.blockTimestamp,
+                        tx.blockTimestamp,
+                        config
+                    );
+                    s3 = trait3Result.strength;
+                    matchedTrait3Evidence = trait3Result.evidence;
+                }
+
                 break; // Stop checking other anchors for this transaction
             }
         }
 
         // Only include if at least one trait is hit
-        if (trait1Matched || s2 === 1) {
-            const decision = calculateDecision(s1, s2, config);
+        if (trait1Matched || s2 === 1 || s3 > 0) {
+            const decision = calculateDecision(s1, s2, s3, config);
 
             results.push({
                 transaction: tx,
                 anchor: matchedAnchor, // May be null if only Trait 2 hit
                 s1,
                 s2,
+                s3,
                 trait1Evidence: matchedTrait1Evidence,
                 trait2Evidence: trait2Result.evidence,
+                trait3Evidence: matchedTrait3Evidence,
                 decision
             });
         }
@@ -500,7 +624,7 @@ function renderResults() {
  * @returns {HTMLElement}
  */
 function createResultCard(result, index) {
-    const { transaction, anchor, s1, s2, trait1Evidence, trait2Evidence, decision } = result;
+    const { transaction, anchor, s1, s2, s3, trait1Evidence, trait2Evidence, trait3Evidence, decision } = result;
 
     const card = document.createElement('div');
     card.className = `result-card level-${decision.action.toLowerCase()}`;
@@ -570,17 +694,18 @@ function createResultCard(result, index) {
             <div class="traits-grid">
                 ${createTrait1Card(s1, trait1Evidence)}
                 ${createTrait2Card(s2, trait2Evidence)}
+                ${s3 > 0 || trait3Evidence ? createTrait3Card(s3, trait3Evidence) : ''}
             </div>
             
             <div class="calculation-section">
                 <div class="calculation-title">决策计算过程</div>
                 <div class="calculation-steps">
                     <div class="calc-step">
-                        <span class="formula">z_base = bias + (w₁ × s₁) + (w₂ × s₂)</span> = 
+                        <span class="formula">z_base = bias + (w₁ × s₁) + (w₂ × s₂) + (w₃ × s₃)</span> = 
                         <span class="result">${decision.zBase.toFixed(4)}</span>
                     </div>
                     <div class="calc-step">
-                        <span class="formula">z_interaction = b₁₂ × s₁ × s₂</span> = 
+                        <span class="formula">z_interaction = b₁₂×s₁×s₂ + b₁₃×s₁×s₃ + b₂₃×s₂×s₃</span> = 
                         <span class="result">${decision.zInteraction.toFixed(4)}</span>
                     </div>
                     <div class="calc-step">
@@ -728,6 +853,87 @@ function createTrait2Card(s2, evidence) {
             <div class="trait-header">
                 <span class="trait-title">Trait 2: 交易数额</span>
                 <span class="trait-score">s₂ = ${s2}</span>
+            </div>
+            <div class="trait-evidence">
+                <span class="trait-miss-text">未命中</span>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Create Trait 3 card HTML
+ */
+function createTrait3Card(s3, evidence) {
+    const hitClass = s3 > 0 ? 'trait3 hit' : 'miss';
+    const strengthPercent = (s3 * 100).toFixed(1);
+
+    // Helper function to format time delta
+    function formatTimeDelta(seconds) {
+        if (!seconds) return 'N/A';
+        if (seconds < 0) return `${Math.abs(seconds)}秒（之前）`;
+        if (seconds < 60) return `${seconds}秒`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`;
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        return `${hours}小时${mins}分`;
+    }
+
+    if (s3 > 0 && evidence) {
+        const deltaT = evidence.deltaT_seconds;
+        const formattedTime = formatTimeDelta(deltaT);
+
+        return `
+            <div class="trait-card ${hitClass}">
+                <div class="trait-header">
+                    <span class="trait-title">Trait 3: 时序性</span>
+                    <span class="trait-score">s₃ = ${s3.toFixed(3)}</span>
+                </div>
+                <div class="trait-evidence">
+                    <div class="trait-evidence-item">
+                        <span class="trait-evidence-label">强度</span>
+                        <span class="trait-evidence-value strength-highlight">${strengthPercent}%</span>
+                    </div>
+                    <div class="trait-evidence-item">
+                        <span class="trait-evidence-label">时间差</span>
+                        <span class="trait-evidence-value">${formattedTime}</span>
+                    </div>
+                    <div class="trait-evidence-item">
+                        <span class="trait-evidence-label">秒数</span>
+                        <span class="trait-evidence-value">${deltaT}s</span>
+                    </div>
+                    <div class="trait-evidence-item">
+                        <span class="trait-evidence-label">状态</span>
+                        <span class="trait-evidence-value">
+                            ${deltaT <= evidence.t_min ? '✓ 紧密跟随' :
+                deltaT < evidence.t_max ? '⚠ 时序关联' :
+                    '× 无关联'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (evidence && evidence.error) {
+        return `
+            <div class="trait-card ${hitClass}">
+                <div class="trait-header">
+                    <span class="trait-title">Trait 3: 时序性</span>
+                    <span class="trait-score">s₃ = 0.000</span>
+                </div>
+                <div class="trait-evidence">
+                    <span class="trait-miss-text">数据缺失 (${evidence.error})</span>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="trait-card ${hitClass}">
+            <div class="trait-header">
+                <span class="trait-title">Trait 3: 时序性</span>
+                <span class="trait-score">s₃ = ${s3.toFixed(3)}</span>
             </div>
             <div class="trait-evidence">
                 <span class="trait-miss-text">未命中</span>
@@ -889,9 +1095,13 @@ function updateConfig() {
     config.bias = parseFloat(configInputs.bias.value) || 0;
     config.w1 = parseFloat(configInputs.w1.value) || 0;
     config.w2 = parseFloat(configInputs.w2.value) || 0;
+    config.w3 = parseFloat(configInputs.w3.value) || 0;
     config.b12 = parseFloat(configInputs.b12.value) || 0;
-    config.t0 = parseFloat(configInputs.t0.value) || 0.5;
-    config.t1 = parseFloat(configInputs.t1.value) || 0.7;
+    config.b13 = parseFloat(configInputs.b13.value) || 0;
+    config.b23 = parseFloat(configInputs.b23.value) || 0;
+    config.t0 = parseFloat(configInputs.t0.value) || 0.3;
+    config.t1 = parseFloat(configInputs.t1.value) || 0.65;
+    config.s0 = parseFloat(configInputs.s0.value) || 0.65;
 
     renderResults();
 }

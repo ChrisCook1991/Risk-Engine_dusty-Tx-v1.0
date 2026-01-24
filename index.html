@@ -96,19 +96,35 @@
                         <div class="config-inputs">
                             <div class="config-item">
                                 <label for="bias">bias (偏置项)</label>
-                                <input type="number" id="bias" value="-2" step="0.1">
+                                <input type="number" id="bias" value="-2.0" step="0.1">
                             </div>
                             <div class="config-item">
                                 <label for="w1">w₁ (地址相似度权重)</label>
-                                <input type="number" id="w1" value="2" step="0.1">
+                                <input type="number" id="w1" value="2.8" step="0.1">
                             </div>
                             <div class="config-item">
                                 <label for="w2">w₂ (交易数额权重)</label>
                                 <input type="number" id="w2" value="1.5" step="0.1">
                             </div>
                             <div class="config-item">
-                                <label for="b12">b₁₂ (交互项系数)</label>
-                                <input type="number" id="b12" value="1" step="0.1">
+                                <label for="w3">w₃ (时序性权重)</label>
+                                <input type="number" id="w3" value="0.8" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="b12">b₁₂ (地址×金额)</label>
+                                <input type="number" id="b12" value="2.0" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="b13">b₁₃ (地址×时序)</label>
+                                <input type="number" id="b13" value="0.3" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="b23">b₂₃ (金额×时序)</label>
+                                <input type="number" id="b23" value="0.0" step="0.1">
+                            </div>
+                            <div class="config-item">
+                                <label for="s0">s₀ (门槛强度)</label>
+                                <input type="number" id="s0" value="0.65" step="0.05" min="0" max="1">
                             </div>
                         </div>
                     </div>
@@ -117,11 +133,11 @@
                         <div class="config-inputs">
                             <div class="config-item threshold-t0">
                                 <label for="t0">T₀ (PASS↔WARNING)</label>
-                                <input type="number" id="t0" value="0.5" step="0.05" min="0" max="1">
+                                <input type="number" id="t0" value="0.3" step="0.05" min="0" max="1">
                             </div>
                             <div class="config-item threshold-t1">
                                 <label for="t1">T₁ (WARNING↔BLOCK)</label>
-                                <input type="number" id="t1" value="0.7" step="0.05" min="0" max="1">
+                                <input type="number" id="t1" value="0.65" step="0.05" min="0" max="1">
                             </div>
                         </div>
                     </div>
