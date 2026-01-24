@@ -1,10 +1,12 @@
 [
     {
         "caip_2": "eip155:1",
-        "anchor_to_addr": "0xbb2f33f73cCC2c74E3f457346775241AC15337E0"
+        "anchor_to_addr": "0xbb2f33f73cCC2c74E3f457346775241AC15337E0",
+        "blockTimestamp": "1769186506"
     },
     {
         "caip_2": "eip155:1",
-        "anchor_to_addr": "0x4b189A6cD36aA8bD134896dC86AD1E71165706E6"
+        "anchor_to_addr": "0x4b189A6cD36aA8bD134896dC86AD1E71165706E6",
+        "blockTimestamp": "1769186000"
     }
 ]
