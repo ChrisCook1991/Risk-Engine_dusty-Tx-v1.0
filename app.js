@@ -30,7 +30,11 @@ let config = {
     tron_L0_suffix_A: 4,
     tron_L1_suffix_A: 10,
     tron_L0_prefix_B: 4,
-    tron_L1_prefix_B: 10
+    tron_L1_prefix_B: 10,
+    tron_L0_suffix_C: 3,
+    tron_L1_suffix_C: 9,
+    tron_L0_prefix_C: 3,
+    tron_L1_prefix_C: 9
 };
 
 // ========================================
@@ -226,18 +230,27 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
         // Rule B: prefix >= 4
         s_B = ramp_with_floor(prefixLen, config.tron_L0_prefix_B, config.tron_L1_prefix_B, s0);
 
+        // Rule C: suffix >= 3 AND prefix >= 3 (short-board effect)
+        const s_C_suffix = ramp_with_floor(suffixLen, config.tron_L0_suffix_C, config.tron_L1_suffix_C, s0);
+        const s_C_prefix = ramp_with_floor(prefixLen, config.tron_L0_prefix_C, config.tron_L1_prefix_C, s0);
+        s_C = Math.min(s_C_suffix, s_C_prefix); // Short-board: both must be strong
+
         // Boolean hit: any rule meets its threshold
         const rule_A_hit = suffixLen >= config.tron_L0_suffix_A;
         const rule_B_hit = prefixLen >= config.tron_L0_prefix_B;
+        const rule_C_hit = suffixLen >= config.tron_L0_suffix_C && prefixLen >= config.tron_L0_prefix_C;
 
-        hit = rule_A_hit || rule_B_hit;
+        hit = rule_A_hit || rule_B_hit || rule_C_hit;
 
         if (hit) {
             // Final strength = max of all sub-strengths
-            strength = Math.max(s_A, s_B);
+            strength = Math.max(s_A, s_B, s_C);
 
-            // Determine primary rule (priority: A > B for Tron)
-            if (s_A === strength && rule_A_hit) {
+            // Determine primary rule (priority: C > A > B for Tron)
+            if (s_C === strength && rule_C_hit) {
+                primaryRule = 'C';
+                matchType = 'prefix+suffix';
+            } else if (s_A === strength && rule_A_hit) {
                 primaryRule = 'A';
                 matchType = 'suffix';
             } else {
