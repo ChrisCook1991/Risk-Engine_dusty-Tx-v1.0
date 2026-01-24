@@ -508,17 +508,20 @@ function analyzeTransactions() {
         const trait2Result = checkSmallAmount(tx.token_amount);
         const s2 = trait2Result.hit ? 1 : 0;
 
-        // Track if this transaction has already matched Trait 1
+        // Track best matches for Trait 1 and Trait 3
         let trait1Matched = false;
-        let matchedAnchor = null;
-        let matchedTrait1Evidence = null;
-        let matchedTrait3Evidence = null;
-        let s1 = 0; // Continuous strength [0, 1]
-        let s3 = 0; // Temporal proximity strength [0, 1]
+        let bestTrait1Anchor = null;
+        let bestTrait1Evidence = null;
+        let bestS1 = 0;
+
+        let bestTrait3Anchor = null;
+        let bestTrait3Evidence = null;
+        let bestS3 = 0;
 
         // Get transaction chain type for same-chain comparison
         const txChainType = getChainType(tx.caip2);
 
+        // Check all anchors for both Trait 1 and Trait 3
         for (const anchor of anchors) {
             // Only compare addresses on the same chain
             const anchorChainType = getChainType(anchor.caip2);
@@ -533,28 +536,54 @@ function analyzeTransactions() {
             );
 
             if (trait1Result.hit) {
-                // Found a match - record it and stop checking other anchors
+                // Found Trait 1 match - record it and stop checking other anchors for Trait 1
                 trait1Matched = true;
-                matchedAnchor = anchor;
-                matchedTrait1Evidence = trait1Result.evidence;
-                s1 = trait1Result.strength; // Use continuous strength
+                bestTrait1Anchor = anchor;
+                bestTrait1Evidence = trait1Result.evidence;
+                bestS1 = trait1Result.strength;
 
-                // Calculate Trait 3 (temporal proximity) for matched anchor
+                // Also calculate Trait 3 for this anchor
                 if (tx.blockTimestamp && anchor.blockTimestamp) {
                     const trait3Result = calculateTemporalProximity(
                         anchor.blockTimestamp,
                         tx.blockTimestamp,
                         config
                     );
-                    s3 = trait3Result.strength;
-                    matchedTrait3Evidence = trait3Result.evidence;
+                    // Use Trait 3 from this anchor since Trait 1 matched
+                    bestS3 = trait3Result.strength;
+                    bestTrait3Anchor = anchor;
+                    bestTrait3Evidence = trait3Result.evidence;
                 }
 
-                break; // Stop checking other anchors for this transaction
+                break; // Stop after finding first Trait 1 match
+            } else {
+                // Trait 1 didn't match, but still check Trait 3 (independent)
+                if (tx.blockTimestamp && anchor.blockTimestamp) {
+                    const trait3Result = calculateTemporalProximity(
+                        anchor.blockTimestamp,
+                        tx.blockTimestamp,
+                        config
+                    );
+
+                    // Keep track of strongest Trait 3 match
+                    if (trait3Result.strength > bestS3) {
+                        bestS3 = trait3Result.strength;
+                        bestTrait3Anchor = anchor;
+                        bestTrait3Evidence = trait3Result.evidence;
+                    }
+                }
             }
         }
 
-        // Only include if at least one trait is hit
+        // Determine which anchor to use in results
+        // Priority: Trait 1 anchor > Trait 3 anchor > null
+        const matchedAnchor = bestTrait1Anchor || bestTrait3Anchor;
+        const s1 = bestS1;
+        const s3 = bestS3;
+        const trait1Evidence = bestTrait1Evidence;
+        const trait3Evidence = bestTrait3Evidence;
+
+        // Include if at least one trait is hit
         if (trait1Matched || s2 === 1 || s3 > 0) {
             const decision = calculateDecision(s1, s2, s3, config);
 
@@ -564,9 +593,9 @@ function analyzeTransactions() {
                 s1,
                 s2,
                 s3,
-                trait1Evidence: matchedTrait1Evidence,
+                trait1Evidence: trait1Evidence,
                 trait2Evidence: trait2Result.evidence,
-                trait3Evidence: matchedTrait3Evidence,
+                trait3Evidence: trait3Evidence,
                 decision
             });
         }
