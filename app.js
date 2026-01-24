@@ -14,7 +14,23 @@ let config = {
     b12: 1,
     t0: 0.3,
     t1: 0.5,
-    t2: 0.7
+    t2: 0.7,
+    // Trait 1 Continuous Strength Parameters
+    s0: 0.65,  // Threshold strength floor
+    // EVM Rules
+    evm_L0_suffix_A: 4,
+    evm_L1_suffix_A: 10,
+    evm_L0_prefix_B: 6,
+    evm_L1_prefix_B: 12,
+    evm_L0_suffix_C: 3,
+    evm_L1_suffix_C: 9,
+    evm_L0_prefix_C: 5,
+    evm_L1_prefix_C: 11,
+    // Tron Rules
+    tron_L0_suffix_A: 4,
+    tron_L1_suffix_A: 10,
+    tron_L0_prefix_B: 4,
+    tron_L1_prefix_B: 10
 };
 
 // ========================================
@@ -43,6 +59,37 @@ const configInputs = {
     t1: document.getElementById('t1'),
     t2: document.getElementById('t2')
 };
+
+// ========================================
+// Utility Functions for Continuous Strength
+// ========================================
+
+/**
+ * Clip value to [0, 1] range
+ * @param {number} x - Value to clip
+ * @returns {number} Clipped value
+ */
+function clip_0_1(x) {
+    if (x < 0) return 0;
+    if (x > 1) return 1;
+    return x;
+}
+
+/**
+ * Ramp function with floor threshold
+ * Returns 0 if x < L0, s0 at L0, linearly increases to 1 at L1
+ * @param {number} x - Input value (match length)
+ * @param {number} L0 - Threshold length (minimum to trigger)
+ * @param {number} L1 - Saturation length (maximum, returns 1)
+ * @param {number} s0 - Floor strength at threshold
+ * @returns {number} Strength value [0, 1]
+ */
+function ramp_with_floor(x, L0, L1, s0) {
+    if (x < L0) return 0;
+    if (x >= L1) return 1;
+    // Linear interpolation from s0 to 1
+    return s0 + (1 - s0) * (x - L0) / (L1 - L0);
+}
 
 // ========================================
 // Address Matching Algorithms
@@ -101,15 +148,15 @@ function getSuffixMatchLength(addr1, addr2) {
 }
 
 /**
- * Check address similarity (Trait 1)
+ * Check address similarity (Trait 1) with continuous strength
  * @param {string} counterpartyAddr - Current transaction address
- * @param {string} anchorAddr - Known suspicious address
- * @returns {{hit: boolean, evidence: object | null}}
+ * @param {string} anchorAddr - Known anchor address
+ * @returns {{hit: boolean, strength: number, evidence: object | null}}
  */
 function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
-    // Skip if addresses are identical
+    // If addresses are identical, not considered similarity poisoning
     if (counterpartyAddr.toLowerCase() === anchorAddr.toLowerCase()) {
-        return { hit: false, evidence: null };
+        return { hit: false, strength: 0, evidence: null };
     }
 
     const addrType = detectAddressType(counterpartyAddr);
@@ -117,75 +164,112 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
 
     // Only compare same type addresses
     if (addrType !== anchorType || addrType === 'unknown') {
-        return { hit: false, evidence: null };
+        return { hit: false, strength: 0, evidence: null };
     }
 
     const prefixLen = getPrefixMatchLength(counterpartyAddr, anchorAddr);
     const suffixLen = getSuffixMatchLength(counterpartyAddr, anchorAddr);
 
+    const s0 = config.s0;
     let hit = false;
+    let strength = 0;
+    let primaryRule = '';
     let matchType = '';
-    let matchLen = 0;
-    let rule = '';
+
+    // Sub-rule strengths
+    let s_A = 0;
+    let s_B = 0;
+    let s_C = 0;
 
     if (addrType === 'evm') {
-        // EVM Rules - Check in priority order
-        // Rule C: suffix >= 3 AND prefix >= 5 (most strict, check first)
-        if (suffixLen >= 3 && prefixLen >= 5) {
-            hit = true;
-            matchType = 'prefix+suffix';
-            matchLen = prefixLen + suffixLen;
-            rule = 'C';
-        }
+        // EVM Rules
         // Rule A: suffix >= 4
-        else if (suffixLen >= 4) {
-            hit = true;
-            matchType = 'suffix';
-            matchLen = suffixLen;
-            rule = 'A';
+        s_A = ramp_with_floor(suffixLen, config.evm_L0_suffix_A, config.evm_L1_suffix_A, s0);
+
+        // Rule B: prefix >= 6
+        s_B = ramp_with_floor(prefixLen, config.evm_L0_prefix_B, config.evm_L1_prefix_B, s0);
+
+        // Rule C: suffix >= 3 AND prefix >= 5 (short-board effect)
+        const s_C_suffix = ramp_with_floor(suffixLen, config.evm_L0_suffix_C, config.evm_L1_suffix_C, s0);
+        const s_C_prefix = ramp_with_floor(prefixLen, config.evm_L0_prefix_C, config.evm_L1_prefix_C, s0);
+        s_C = Math.min(s_C_suffix, s_C_prefix); // Short-board: both must be strong
+
+        // Boolean hit: any rule meets its threshold
+        const rule_A_hit = suffixLen >= config.evm_L0_suffix_A;
+        const rule_B_hit = prefixLen >= config.evm_L0_prefix_B;
+        const rule_C_hit = suffixLen >= config.evm_L0_suffix_C && prefixLen >= config.evm_L0_prefix_C;
+
+        hit = rule_A_hit || rule_B_hit || rule_C_hit;
+
+        if (hit) {
+            // Final strength = max of all sub-strengths
+            strength = Math.max(s_A, s_B, s_C);
+
+            // Determine primary rule (priority: C > A > B)
+            if (s_C === strength && rule_C_hit) {
+                primaryRule = 'C';
+                matchType = 'prefix+suffix';
+            } else if (s_A === strength && rule_A_hit) {
+                primaryRule = 'A';
+                matchType = 'suffix';
+            } else {
+                primaryRule = 'B';
+                matchType = 'prefix';
+            }
         }
-        // Rule B: prefix >= 6 (including 0x)
-        else if (prefixLen >= 6) {
-            hit = true;
-            matchType = 'prefix';
-            matchLen = prefixLen;
-            rule = 'B';
-        }
+
     } else if (addrType === 'tron') {
         // Tron Rules
         // Rule A: suffix >= 4
-        if (suffixLen >= 4) {
-            hit = true;
-            matchType = 'suffix';
-            matchLen = suffixLen;
-            rule = 'A';
-        }
-        // Rule B: prefix >= 4 (including T)
-        else if (prefixLen >= 4) {
-            hit = true;
-            matchType = 'prefix';
-            matchLen = prefixLen;
-            rule = 'B';
+        s_A = ramp_with_floor(suffixLen, config.tron_L0_suffix_A, config.tron_L1_suffix_A, s0);
+
+        // Rule B: prefix >= 4
+        s_B = ramp_with_floor(prefixLen, config.tron_L0_prefix_B, config.tron_L1_prefix_B, s0);
+
+        // Boolean hit: any rule meets its threshold
+        const rule_A_hit = suffixLen >= config.tron_L0_suffix_A;
+        const rule_B_hit = prefixLen >= config.tron_L0_prefix_B;
+
+        hit = rule_A_hit || rule_B_hit;
+
+        if (hit) {
+            // Final strength = max of all sub-strengths
+            strength = Math.max(s_A, s_B);
+
+            // Determine primary rule (priority: A > B for Tron)
+            if (s_A === strength && rule_A_hit) {
+                primaryRule = 'A';
+                matchType = 'suffix';
+            } else {
+                primaryRule = 'B';
+                matchType = 'prefix';
+            }
         }
     }
 
     if (hit) {
         return {
             hit: true,
+            strength: clip_0_1(strength), // Ensure [0, 1] range
             evidence: {
                 match_type: matchType,
-                match_len: matchLen,
-                rule: rule,
+                primary_rule: primaryRule,
                 ref_addr: anchorAddr,
                 suspect_addr: counterpartyAddr,
                 addr_type: addrType,
                 prefix_len: prefixLen,
-                suffix_len: suffixLen
+                suffix_len: suffixLen,
+                // Sub-strengths for transparency
+                strength_A: s_A,
+                strength_B: s_B,
+                strength_C: s_C,
+                // Overall strength
+                strength: clip_0_1(strength)
             }
         };
     }
 
-    return { hit: false, evidence: null };
+    return { hit: false, strength: 0, evidence: null };
 }
 
 /**
@@ -247,7 +331,7 @@ function getChainType(caip2) {
 
 /**
  * Calculate decision based on traits and config
- * @param {number} s1 - Trait 1 score (0 or 1)
+ * @param {number} s1 - Trait 1 strength [0, 1] (continuous)
  * @param {number} s2 - Trait 2 score (0 or 1)
  * @param {object} cfg - Configuration parameters
  * @returns {object}
@@ -312,6 +396,7 @@ function analyzeTransactions() {
         let trait1Matched = false;
         let matchedAnchor = null;
         let matchedTrait1Evidence = null;
+        let s1 = 0; // Continuous strength [0, 1]
 
         // Get transaction chain type for same-chain comparison
         const txChainType = getChainType(tx.caip2);
@@ -334,14 +419,13 @@ function analyzeTransactions() {
                 trait1Matched = true;
                 matchedAnchor = anchor;
                 matchedTrait1Evidence = trait1Result.evidence;
+                s1 = trait1Result.strength; // Use continuous strength
                 break; // Stop checking other anchors for this transaction
             }
         }
 
-        const s1 = trait1Matched ? 1 : 0;
-
         // Only include if at least one trait is hit
-        if (s1 === 1 || s2 === 1) {
+        if (trait1Matched || s2 === 1) {
             const decision = calculateDecision(s1, s2, config);
 
             results.push({
@@ -516,19 +600,54 @@ function createResultCard(result, index) {
  * Create Trait 1 card HTML
  */
 function createTrait1Card(s1, evidence) {
-    const hitClass = s1 === 1 ? 'trait1 hit' : 'miss';
+    const hitClass = s1 > 0 ? 'trait1 hit' : 'miss';
+    const strengthPercent = (s1 * 100).toFixed(1);
 
-    if (s1 === 1 && evidence) {
+    if (s1 > 0 && evidence) {
+        // Build sub-strengths display
+        let subStrengthsHTML = '';
+        if (evidence.addr_type === 'evm') {
+            subStrengthsHTML = `
+                <div class="trait-evidence-item">
+                    <span class="trait-evidence-label">规则 A 强度</span>
+                    <span class="trait-evidence-value">${(evidence.strength_A * 100).toFixed(1)}%</span>
+                </div>
+                <div class="trait-evidence-item">
+                    <span class="trait-evidence-label">规则 B 强度</span>
+                    <span class="trait-evidence-value">${(evidence.strength_B * 100).toFixed(1)}%</span>
+                </div>
+                <div class="trait-evidence-item">
+                    <span class="trait-evidence-label">规则 C 强度</span>
+                    <span class="trait-evidence-value">${(evidence.strength_C * 100).toFixed(1)}%</span>
+                </div>
+            `;
+        } else {
+            subStrengthsHTML = `
+                <div class="trait-evidence-item">
+                    <span class="trait-evidence-label">规则 A 强度</span>
+                    <span class="trait-evidence-value">${(evidence.strength_A * 100).toFixed(1)}%</span>
+                </div>
+                <div class="trait-evidence-item">
+                    <span class="trait-evidence-label">规则 B 强度</span>
+                    <span class="trait-evidence-value">${(evidence.strength_B * 100).toFixed(1)}%</span>
+                </div>
+            `;
+        }
+
         return `
             <div class="trait-card ${hitClass}">
                 <div class="trait-header">
                     <span class="trait-title">Trait 1: 地址相似度</span>
-                    <span class="trait-score">s₁ = ${s1}</span>
+                    <span class="trait-score">s₁ = ${s1.toFixed(3)}</span>
                 </div>
                 <div class="trait-evidence">
                     <div class="trait-evidence-item">
-                        <span class="trait-evidence-label">命中规则</span>
-                        <span class="trait-evidence-value">规则 ${evidence.rule}</span>
+                        <span class="trait-evidence-label">强度</span>
+                        <span class="trait-evidence-value strength-highlight">${strengthPercent}%</span>
+                    </div>
+                    <div class="trait-evidence-item">
+                        <span class="trait-evidence-label">主规则</span>
+                        <span class="trait-evidence-value">规则 ${evidence.primary_rule}</span>
                     </div>
                     <div class="trait-evidence-item">
                         <span class="trait-evidence-label">地址类型</span>
@@ -546,6 +665,7 @@ function createTrait1Card(s1, evidence) {
                         <span class="trait-evidence-label">后缀匹配</span>
                         <span class="trait-evidence-value">${evidence.suffix_len} 字符</span>
                     </div>
+                    ${subStrengthsHTML}
                 </div>
             </div>
         `;
@@ -555,7 +675,7 @@ function createTrait1Card(s1, evidence) {
         <div class="trait-card ${hitClass}">
             <div class="trait-header">
                 <span class="trait-title">Trait 1: 地址相似度</span>
-                <span class="trait-score">s₁ = ${s1}</span>
+                <span class="trait-score">s₁ = ${s1.toFixed(3)}</span>
             </div>
             <div class="trait-evidence">
                 <span class="trait-miss-text">未命中</span>

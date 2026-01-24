@@ -704,6 +704,12 @@ body::before {
     font-family: var(--font-mono);
 }
 
+.strength-highlight {
+    color: var(--accent-primary);
+    font-weight: 700;
+    font-size: 0.9375rem;
+}
+
 .trait-miss-text {
     color: var(--text-muted);
     font-style: italic;
