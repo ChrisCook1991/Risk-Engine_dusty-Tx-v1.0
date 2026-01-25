@@ -294,38 +294,32 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
     let s_C = 0;
 
     if (addrType === 'evm') {
-        // EVM Rules
-        // Rule A: suffix >= 4
-        s_A = ramp_with_floor(suffixLen, config.evm_L0_suffix_A, config.evm_L1_suffix_A, s0);
-
-        // Rule B: prefix >= 6
-        s_B = ramp_with_floor(prefixLen, config.evm_L0_prefix_B, config.evm_L1_prefix_B, s0);
-
-        // Rule C: suffix >= 3 AND prefix >= 5 (max aggregation + boost)
-        const s_C_suffix = ramp_with_floor(suffixLen, config.evm_L0_suffix_C, config.evm_L1_suffix_C, s0);
-        const s_C_prefix = ramp_with_floor(prefixLen, config.evm_L0_prefix_C, config.evm_L1_prefix_C, s0);
-        // Max aggregation with 10% boost: emphasize the stronger side
-        const s_C_raw = config.c_boost * Math.max(s_C_suffix, s_C_prefix);
-        s_C = clip_0_1(s_C_raw);
-
-        // Boolean hit: any rule meets its threshold
+        // EVM Rules - Step 1: Check boolean hit conditions FIRST
         const rule_A_hit = suffixLen >= config.evm_L0_suffix_A;
         const rule_B_hit = prefixLen >= config.evm_L0_prefix_B;
         const rule_C_hit = suffixLen >= config.evm_L0_suffix_C && prefixLen >= config.evm_L0_prefix_C;
 
-        // CRITICAL: Reset strengths to 0 if boolean condition not met
-        if (!rule_A_hit) s_A = 0;
-        if (!rule_B_hit) s_B = 0;
-        if (!rule_C_hit) s_C = 0;
+        // Step 2: Only calculate strength for rules that hit
+        if (rule_A_hit) {
+            s_A = ramp_with_floor(suffixLen, config.evm_L0_suffix_A, config.evm_L1_suffix_A, s0);
+        }
+
+        if (rule_B_hit) {
+            s_B = ramp_with_floor(prefixLen, config.evm_L0_prefix_B, config.evm_L1_prefix_B, s0);
+        }
+
+        if (rule_C_hit) {
+            const s_C_suffix = ramp_with_floor(suffixLen, config.evm_L0_suffix_C, config.evm_L1_suffix_C, s0);
+            const s_C_prefix = ramp_with_floor(prefixLen, config.evm_L0_prefix_C, config.evm_L1_prefix_C, s0);
+            const s_C_raw = config.c_boost * Math.max(s_C_suffix, s_C_prefix);
+            s_C = clip_0_1(s_C_raw);
+        }
 
         hit = rule_A_hit || rule_B_hit || rule_C_hit;
 
         if (hit) {
-            // Final strength = max of all sub-strengths
             strength = Math.max(s_A, s_B, s_C);
 
-            // Determine primary rule (priority: C > A > B)
-            // CRITICAL: Must verify boolean hit condition for each rule
             if (s_C === strength && rule_C_hit) {
                 primaryRule = 'C';
                 matchType = 'prefix+suffix';
@@ -336,7 +330,6 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
                 primaryRule = 'B';
                 matchType = 'prefix';
             } else {
-                // Fallback: find first rule that actually hit
                 if (rule_A_hit) {
                     primaryRule = 'A';
                     matchType = 'suffix';
@@ -351,38 +344,32 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
         }
 
     } else if (addrType === 'tron') {
-        // Tron Rules
-        // Rule A: suffix >= 4
-        s_A = ramp_with_floor(suffixLen, config.tron_L0_suffix_A, config.tron_L1_suffix_A, s0);
-
-        // Rule B: prefix >= 4
-        s_B = ramp_with_floor(prefixLen, config.tron_L0_prefix_B, config.tron_L1_prefix_B, s0);
-
-        // Rule C: suffix >= 3 AND prefix >= 3 (max aggregation + boost)
-        const s_C_suffix = ramp_with_floor(suffixLen, config.tron_L0_suffix_C, config.tron_L1_suffix_C, s0);
-        const s_C_prefix = ramp_with_floor(prefixLen, config.tron_L0_prefix_C, config.tron_L1_prefix_C, s0);
-        // Max aggregation with 10% boost: emphasize the stronger side
-        const s_C_raw = config.c_boost * Math.max(s_C_suffix, s_C_prefix);
-        s_C = clip_0_1(s_C_raw);
-
-        // Boolean hit: any rule meets its threshold
+        // Tron Rules - Step 1: Check boolean hit conditions FIRST
         const rule_A_hit = suffixLen >= config.tron_L0_suffix_A;
         const rule_B_hit = prefixLen >= config.tron_L0_prefix_B;
         const rule_C_hit = suffixLen >= config.tron_L0_suffix_C && prefixLen >= config.tron_L0_prefix_C;
 
-        // CRITICAL: Reset strengths to 0 if boolean condition not met
-        if (!rule_A_hit) s_A = 0;
-        if (!rule_B_hit) s_B = 0;
-        if (!rule_C_hit) s_C = 0;
+        // Step 2: Only calculate strength for rules that hit
+        if (rule_A_hit) {
+            s_A = ramp_with_floor(suffixLen, config.tron_L0_suffix_A, config.tron_L1_suffix_A, s0);
+        }
+
+        if (rule_B_hit) {
+            s_B = ramp_with_floor(prefixLen, config.tron_L0_prefix_B, config.tron_L1_prefix_B, s0);
+        }
+
+        if (rule_C_hit) {
+            const s_C_suffix = ramp_with_floor(suffixLen, config.tron_L0_suffix_C, config.tron_L1_suffix_C, s0);
+            const s_C_prefix = ramp_with_floor(prefixLen, config.tron_L0_prefix_C, config.tron_L1_prefix_C, s0);
+            const s_C_raw = config.c_boost * Math.max(s_C_suffix, s_C_prefix);
+            s_C = clip_0_1(s_C_raw);
+        }
 
         hit = rule_A_hit || rule_B_hit || rule_C_hit;
 
         if (hit) {
-            // Final strength = max of all sub-strengths
             strength = Math.max(s_A, s_B, s_C);
 
-            // Determine primary rule (priority: C > A > B for Tron)
-            // CRITICAL: Must verify boolean hit condition for each rule
             if (s_C === strength && rule_C_hit) {
                 primaryRule = 'C';
                 matchType = 'prefix+suffix';
@@ -393,7 +380,6 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
                 primaryRule = 'B';
                 matchType = 'prefix';
             } else {
-                // Fallback: find first rule that actually hit
                 if (rule_A_hit) {
                     primaryRule = 'A';
                     matchType = 'suffix';
