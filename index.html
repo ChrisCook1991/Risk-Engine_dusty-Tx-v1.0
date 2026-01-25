@@ -91,23 +91,24 @@
                     参数配置
                 </h2>
                 <div class="config-grid">
+                    <!-- Column 1: Decision Weights -->
                     <div class="config-group weights-group">
-                        <h4>权重参数</h4>
+                        <h4>决策权重</h4>
                         <div class="config-inputs">
                             <div class="config-item">
                                 <label for="bias">bias (偏置项)</label>
                                 <input type="number" id="bias" value="-2.0" step="0.1">
                             </div>
                             <div class="config-item">
-                                <label for="w1">w₁ (地址相似度权重)</label>
-                                <input type="number" id="w1" value="2.8" step="0.1">
+                                <label for="w1">w₁ (地址相似度)</label>
+                                <input type="number" id="w1" value="3.0" step="0.1">
                             </div>
                             <div class="config-item">
-                                <label for="w2">w₂ (交易数额权重)</label>
+                                <label for="w2">w₂ (交易数额)</label>
                                 <input type="number" id="w2" value="1.5" step="0.1">
                             </div>
                             <div class="config-item">
-                                <label for="w3">w₃ (时序性权重)</label>
+                                <label for="w3">w₃ (时序性)</label>
                                 <input type="number" id="w3" value="0.8" step="0.1">
                             </div>
                             <div class="config-item">
@@ -120,8 +121,30 @@
                             </div>
                             <div class="config-item">
                                 <label for="b23">b₂₃ (金额×时序)</label>
-                                <input type="number" id="b23" value="0.0" step="0.1">
+                                <input type="number" id="b23" value="0.1" step="0.1">
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Thresholds -->
+                    <div class="config-group thresholds-group">
+                        <h4>阈值参数</h4>
+                        <div class="config-inputs">
+                            <div class="config-item threshold-t0">
+                                <label for="t0">T₀ (PASS↔WARNING)</label>
+                                <input type="number" id="t0" value="0.25" step="0.05" min="0" max="1">
+                            </div>
+                            <div class="config-item threshold-t1">
+                                <label for="t1">T₁ (WARNING↔BLOCK)</label>
+                                <input type="number" id="t1" value="0.65" step="0.05" min="0" max="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Trait Parameters -->
+                    <div class="config-group trait-params-group">
+                        <h4>特征参数</h4>
+                        <div class="config-inputs">
                             <div class="config-item">
                                 <label for="s0">s₀ (门槛强度)</label>
                                 <input type="number" id="s0" value="0.65" step="0.05" min="0" max="1">
@@ -129,19 +152,6 @@
                             <div class="config-item">
                                 <label for="c_boost">c_boost (规则C加成)</label>
                                 <input type="number" id="c_boost" value="1.1" step="0.05" min="1" max="2">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="config-group thresholds-group">
-                        <h4>阈值参数</h4>
-                        <div class="config-inputs">
-                            <div class="config-item threshold-t0">
-                                <label for="t0">T₀ (PASS↔WARNING)</label>
-                                <input type="number" id="t0" value="0.3" step="0.05" min="0" max="1">
-                            </div>
-                            <div class="config-item threshold-t1">
-                                <label for="t1">T₁ (WARNING↔BLOCK)</label>
-                                <input type="number" id="t1" value="0.65" step="0.05" min="0" max="1">
                             </div>
                         </div>
                     </div>

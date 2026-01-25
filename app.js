@@ -10,15 +10,15 @@ let anchors = [];
 let config = {
     // Decision weights
     bias: -2.0,
-    w1: 2.8,   // Trait 1: Address similarity (strong signal)
+    w1: 3.0,   // Trait 1: Address similarity (strong signal)
     w2: 1.5,   // Trait 2: Small amount (medium signal)
     w3: 0.8,   // Trait 3: Temporal proximity (weak signal)
     // Interaction coefficients
     b12: 2.0,  // S1 × S2: Address + Amount (strong boost)
     b13: 0.3,  // S1 × S3: Address + Time (small boost)
-    b23: 0.1,  // S2 × S3: Amount + Time (no boost initially)
+    b23: 0.1,  // S2 × S3: Amount + Time (small boost)
     // Thresholds
-    t0: 0.3,   // PASS ↔ WARNING threshold
+    t0: 0.25,  // PASS ↔ WARNING threshold
     t1: 0.65,  // WARNING ↔ BLOCK threshold
     // Trait 1 Continuous Strength Parameters
     s0: 0.65,  // Threshold strength floor
@@ -1149,14 +1149,14 @@ function clearAnchors() {
  * Update config from inputs
  */
 function updateConfig() {
-    config.bias = parseFloat(configInputs.bias.value) || 0;
-    config.w1 = parseFloat(configInputs.w1.value) || 0;
-    config.w2 = parseFloat(configInputs.w2.value) || 0;
-    config.w3 = parseFloat(configInputs.w3.value) || 0;
-    config.b12 = parseFloat(configInputs.b12.value) || 0;
-    config.b13 = parseFloat(configInputs.b13.value) || 0;
-    config.b23 = parseFloat(configInputs.b23.value) || 0;
-    config.t0 = parseFloat(configInputs.t0.value) || 0.3;
+    config.bias = parseFloat(configInputs.bias.value) || -2.0;
+    config.w1 = parseFloat(configInputs.w1.value) || 3.0;
+    config.w2 = parseFloat(configInputs.w2.value) || 1.5;
+    config.w3 = parseFloat(configInputs.w3.value) || 0.8;
+    config.b12 = parseFloat(configInputs.b12.value) || 2.0;
+    config.b13 = parseFloat(configInputs.b13.value) || 0.3;
+    config.b23 = parseFloat(configInputs.b23.value) || 0.1;
+    config.t0 = parseFloat(configInputs.t0.value) || 0.25;
     config.t1 = parseFloat(configInputs.t1.value) || 0.65;
     config.s0 = parseFloat(configInputs.s0.value) || 0.65;
     config.c_boost = parseFloat(configInputs.c_boost.value) || 1.1;
