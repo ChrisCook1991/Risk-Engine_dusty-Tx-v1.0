@@ -320,15 +320,28 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
             strength = Math.max(s_A, s_B, s_C);
 
             // Determine primary rule (priority: C > A > B)
+            // CRITICAL: Must verify boolean hit condition for each rule
             if (s_C === strength && rule_C_hit) {
                 primaryRule = 'C';
                 matchType = 'prefix+suffix';
             } else if (s_A === strength && rule_A_hit) {
                 primaryRule = 'A';
                 matchType = 'suffix';
-            } else {
+            } else if (s_B === strength && rule_B_hit) {
                 primaryRule = 'B';
                 matchType = 'prefix';
+            } else {
+                // Fallback: find first rule that actually hit
+                if (rule_A_hit) {
+                    primaryRule = 'A';
+                    matchType = 'suffix';
+                } else if (rule_B_hit) {
+                    primaryRule = 'B';
+                    matchType = 'prefix';
+                } else if (rule_C_hit) {
+                    primaryRule = 'C';
+                    matchType = 'prefix+suffix';
+                }
             }
         }
 
@@ -359,15 +372,28 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
             strength = Math.max(s_A, s_B, s_C);
 
             // Determine primary rule (priority: C > A > B for Tron)
+            // CRITICAL: Must verify boolean hit condition for each rule
             if (s_C === strength && rule_C_hit) {
                 primaryRule = 'C';
                 matchType = 'prefix+suffix';
             } else if (s_A === strength && rule_A_hit) {
                 primaryRule = 'A';
                 matchType = 'suffix';
-            } else {
+            } else if (s_B === strength && rule_B_hit) {
                 primaryRule = 'B';
                 matchType = 'prefix';
+            } else {
+                // Fallback: find first rule that actually hit
+                if (rule_A_hit) {
+                    primaryRule = 'A';
+                    matchType = 'suffix';
+                } else if (rule_B_hit) {
+                    primaryRule = 'B';
+                    matchType = 'prefix';
+                } else if (rule_C_hit) {
+                    primaryRule = 'C';
+                    matchType = 'prefix+suffix';
+                }
             }
         }
     }
