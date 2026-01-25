@@ -313,6 +313,11 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
         const rule_B_hit = prefixLen >= config.evm_L0_prefix_B;
         const rule_C_hit = suffixLen >= config.evm_L0_suffix_C && prefixLen >= config.evm_L0_prefix_C;
 
+        // CRITICAL: Reset strengths to 0 if boolean condition not met
+        if (!rule_A_hit) s_A = 0;
+        if (!rule_B_hit) s_B = 0;
+        if (!rule_C_hit) s_C = 0;
+
         hit = rule_A_hit || rule_B_hit || rule_C_hit;
 
         if (hit) {
@@ -364,6 +369,11 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
         const rule_A_hit = suffixLen >= config.tron_L0_suffix_A;
         const rule_B_hit = prefixLen >= config.tron_L0_prefix_B;
         const rule_C_hit = suffixLen >= config.tron_L0_suffix_C && prefixLen >= config.tron_L0_prefix_C;
+
+        // CRITICAL: Reset strengths to 0 if boolean condition not met
+        if (!rule_A_hit) s_A = 0;
+        if (!rule_B_hit) s_B = 0;
+        if (!rule_C_hit) s_C = 0;
 
         hit = rule_A_hit || rule_B_hit || rule_C_hit;
 
