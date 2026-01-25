@@ -16,12 +16,13 @@ let config = {
     // Interaction coefficients
     b12: 2.0,  // S1 × S2: Address + Amount (strong boost)
     b13: 0.3,  // S1 × S3: Address + Time (small boost)
-    b23: 0.0,  // S2 × S3: Amount + Time (no boost initially)
+    b23: 0.1,  // S2 × S3: Amount + Time (no boost initially)
     // Thresholds
     t0: 0.3,   // PASS ↔ WARNING threshold
     t1: 0.65,  // WARNING ↔ BLOCK threshold
     // Trait 1 Continuous Strength Parameters
     s0: 0.65,  // Threshold strength floor
+    c_boost: 1.1,  // Rule C boost coefficient (10% bonus for prefix+suffix combination)
     // EVM Rules
     evm_L0_suffix_A: 4,
     evm_L1_suffix_A: 10,
@@ -73,7 +74,8 @@ const configInputs = {
     b23: document.getElementById('b23'),
     t0: document.getElementById('t0'),
     t1: document.getElementById('t1'),
-    s0: document.getElementById('s0')
+    s0: document.getElementById('s0'),
+    c_boost: document.getElementById('c_boost')
 };
 
 // ========================================
@@ -299,10 +301,12 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
         // Rule B: prefix >= 6
         s_B = ramp_with_floor(prefixLen, config.evm_L0_prefix_B, config.evm_L1_prefix_B, s0);
 
-        // Rule C: suffix >= 3 AND prefix >= 5 (short-board effect)
+        // Rule C: suffix >= 3 AND prefix >= 5 (max aggregation + boost)
         const s_C_suffix = ramp_with_floor(suffixLen, config.evm_L0_suffix_C, config.evm_L1_suffix_C, s0);
         const s_C_prefix = ramp_with_floor(prefixLen, config.evm_L0_prefix_C, config.evm_L1_prefix_C, s0);
-        s_C = Math.min(s_C_suffix, s_C_prefix); // Short-board: both must be strong
+        // Max aggregation with 10% boost: emphasize the stronger side
+        const s_C_raw = config.c_boost * Math.max(s_C_suffix, s_C_prefix);
+        s_C = clip_0_1(s_C_raw);
 
         // Boolean hit: any rule meets its threshold
         const rule_A_hit = suffixLen >= config.evm_L0_suffix_A;
@@ -336,10 +340,12 @@ function checkAddressSimilarity(counterpartyAddr, anchorAddr) {
         // Rule B: prefix >= 4
         s_B = ramp_with_floor(prefixLen, config.tron_L0_prefix_B, config.tron_L1_prefix_B, s0);
 
-        // Rule C: suffix >= 3 AND prefix >= 3 (short-board effect)
+        // Rule C: suffix >= 3 AND prefix >= 3 (max aggregation + boost)
         const s_C_suffix = ramp_with_floor(suffixLen, config.tron_L0_suffix_C, config.tron_L1_suffix_C, s0);
         const s_C_prefix = ramp_with_floor(prefixLen, config.tron_L0_prefix_C, config.tron_L1_prefix_C, s0);
-        s_C = Math.min(s_C_suffix, s_C_prefix); // Short-board: both must be strong
+        // Max aggregation with 10% boost: emphasize the stronger side
+        const s_C_raw = config.c_boost * Math.max(s_C_suffix, s_C_prefix);
+        s_C = clip_0_1(s_C_raw);
 
         // Boolean hit: any rule meets its threshold
         const rule_A_hit = suffixLen >= config.tron_L0_suffix_A;
@@ -1131,6 +1137,7 @@ function updateConfig() {
     config.t0 = parseFloat(configInputs.t0.value) || 0.3;
     config.t1 = parseFloat(configInputs.t1.value) || 0.65;
     config.s0 = parseFloat(configInputs.s0.value) || 0.65;
+    config.c_boost = parseFloat(configInputs.c_boost.value) || 1.1;
 
     renderResults();
 }
